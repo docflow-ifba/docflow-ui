@@ -20,13 +20,15 @@ function App() {
 
       <Route element={<PrivateRoute />}>
         <Route path="/app" element={<DashboardLayout isAdmin={isAdmin} />}>
-          {isAdmin && (
+          {isAdmin ? (
             <>
               <Route index element={<DashboardPage />} />
               <Route path="editais" element={<NoticesPage />} />
               <Route path="organizacoes" element={<OrganizationsPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
             </>
+          ) : (
+            <Route index element={<Navigate to="chat" replace />} />
           )}
           <Route path="chat" element={<ChatPage />} />
         </Route>

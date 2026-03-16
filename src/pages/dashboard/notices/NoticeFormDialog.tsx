@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import OrganizationsAutocomplete from '@/components/organizations-autocomplete';
 import { CreateNoticeDTO } from '@/dtos/create-notice.dto';
-import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useRef } from 'react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import { NoticeStatus, NoticeStatusLabels } from '@/enums/notice-status';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,15 +17,76 @@ import { embedNotice, getNotice } from '@/services/notice.service';
 import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
 import MarkdownRenderer from './MarkdownRenderer';
+import { Organization } from '@/dtos/organization';
+import { noticeSchema, type NoticeFormData } from '@/schemas/notice.schema';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
-const initialNoticeState: CreateNoticeDTO = {
-  title: '',
-  deadline: '',
-  pdfBase64: '',
-  organization: { name: '' },
-};
+interface NoticeFormFieldsProps {
+  form: UseFormReturn<NoticeFormData>;
+  isEdit: boolean;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onOrganizationChange: (org: Organization) => void;
+}
+
+function NoticeFormFields({ form, isEdit, onFileChange, onOrganizationChange }: NoticeFormFieldsProps) {
+  const {
+    register,
+    formState: { errors },
+    watch,
+  } = form;
+  const organizationName = watch('organizationName');
+
+  return (
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="title">Título</Label>
+        <Input
+          id="title"
+          placeholder="Digite o título do edital"
+          aria-invalid={!!errors.title}
+          {...register('title')}
+        />
+        {errors.title && <p className="text-xs text-destructive -mt-1">{errors.title.message}</p>}
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="deadline">Data Final de Inscrição</Label>
+        <Input
+          id="deadline"
+          type="date"
+          aria-invalid={!!errors.deadline}
+          {...register('deadline')}
+        />
+        {errors.deadline && <p className="text-xs text-destructive -mt-1">{errors.deadline.message}</p>}
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="organization_id">Instituição</Label>
+        <OrganizationsAutocomplete
+          id="organization_id"
+          value={organizationName ?? ''}
+          onChange={onOrganizationChange}
+          placeholder="Digite o nome da instituição"
+        />
+        {errors.organizationName && (
+          <p className="text-xs text-destructive -mt-1">{errors.organizationName.message}</p>
+        )}
+      </div>
+      {!isEdit && (
+        <div className="grid gap-2">
+          <Label htmlFor="pdf">Arquivo PDF</Label>
+          <Input
+            id="pdf"
+            type="file"
+            accept="application/pdf"
+            onChange={onFileChange}
+            aria-invalid={!!errors.pdfBase64}
+          />
+          {errors.pdfBase64 && <p className="text-xs text-destructive -mt-1">{errors.pdfBase64.message}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface NoticeFormDialogProps {
   open: boolean;
@@ -33,115 +96,92 @@ interface NoticeFormDialogProps {
 }
 
 export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: NoticeFormDialogProps) {
-  const [currentNotice, setCurrentNotice] = useState<CreateNoticeDTO>(initialNoticeState);
+  const isEdit = !!noticeId;
+  const pdfBase64Ref = useRef<string>('');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('form');
-  const [errors, setErrors] = useState({
-    title: '',
-    deadline: '',
-    pdfBase64: '',
-    organization: '',
-  });
   const [pdfOpen, setPdfOpen] = useState(false);
   const [markdownOpen, setMarkdownOpen] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
+  const form = useForm<NoticeFormData>({
+    resolver: zodResolver(noticeSchema),
+    defaultValues: { title: '', deadline: '', pdfBase64: '', organizationName: '' },
+  });
+
   useEffect(() => {
+    if (!open) {
+      form.reset();
+      pdfBase64Ref.current = '';
+      setNotice(null);
+      return;
+    }
     if (open && noticeId) {
       setIsLoading(true);
       getNotice(noticeId)
         .then((data) => {
           setNotice(data);
-          setCurrentNotice({
+          form.reset({
             title: data.title,
             deadline: new Date(data.deadline).toISOString().split('T')[0],
-            pdfBase64: data.pdfBase64,
-            organization: data.organization,
+            organizationName: data.organization?.name ?? '',
+            organizationId: data.organization?.organizationId ?? '',
+            pdfBase64: data.pdfBase64 ?? '',
           });
-          setIsLoading(false);
         })
         .catch((err) => {
           console.error('Error fetching notice:', err);
           toast.error('Erro ao carregar dados do edital');
-          setIsLoading(false);
-        });
+        })
+        .finally(() => setIsLoading(false));
     }
   }, [open, noticeId]);
-
-  const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      title: '',
-      deadline: '',
-      pdfBase64: '',
-      organization: '',
-    };
-
-    if (!currentNotice.title?.trim()) {
-      newErrors.title = 'O título é obrigatório';
-      isValid = false;
-    }
-
-    if (!currentNotice.deadline) {
-      newErrors.deadline = 'A data final é obrigatória';
-      isValid = false;
-    }
-
-    if (!noticeId && !currentNotice.pdfBase64) {
-      newErrors.pdfBase64 = 'O arquivo PDF é obrigatório';
-      isValid = false;
-    }
-
-    if (!currentNotice.organization?.name?.trim()) {
-      newErrors.organization = 'A instituição é obrigatória';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      setErrors((prev) => ({
-        ...prev,
-        pdfBase64: 'Por favor, envie um arquivo no formato PDF',
-      }));
+      form.setError('pdfBase64', { message: 'Por favor, envie um arquivo no formato PDF' });
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setCurrentNotice((prev) => ({
-        ...prev,
-        pdfBase64: reader.result as string,
-      }));
-      setErrors((prev) => ({
-        ...prev,
-        pdfBase64: '',
-      }));
+      pdfBase64Ref.current = reader.result as string;
+      form.setValue('pdfBase64', reader.result as string);
+      form.clearErrors('pdfBase64');
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    try {
-      await onSubmit(currentNotice);
-      onOpenChange(false);
-      setCurrentNotice(initialNoticeState);
-      toast.success(noticeId ? 'Edital atualizado com sucesso!' : 'Edital criado com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao salvar edital. Verifique os dados e tente novamente.');
-      console.error('Erro ao salvar edital:', err);
-    }
+  const handleOrganizationChange = (org: Organization) => {
+    form.setValue('organizationName', org.name, { shouldValidate: true });
+    form.setValue('organizationId', org.organizationId);
   };
+
+  const handleFormSubmit = form.handleSubmit(async (data) => {
+    const pdfBase64 = isEdit ? (notice?.pdfBase64 ?? '') : pdfBase64Ref.current;
+    if (!isEdit && !pdfBase64) {
+      form.setError('pdfBase64', { message: 'O arquivo PDF é obrigatório' });
+      return;
+    }
+    try {
+      await onSubmit({
+        title: data.title,
+        deadline: data.deadline,
+        pdfBase64,
+        organization: { organizationId: data.organizationId, name: data.organizationName },
+      });
+      onOpenChange(false);
+      toast.success(isEdit ? 'Edital atualizado com sucesso!' : 'Edital criado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao salvar edital:', err);
+      toast.error('Erro ao salvar edital. Verifique os dados e tente novamente.');
+    }
+  });
 
   const handleProcessNotice = async () => {
     if (!notice || !noticeId) return;
@@ -151,7 +191,6 @@ export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: Not
       await embedNotice(noticeId);
       toast.success('Edital enviado para processamento');
       onOpenChange(false);
-      setCurrentNotice(initialNoticeState);
     } catch (err) {
       toast.error('Erro ao processar edital');
       console.error('Error processing notice:', err);
@@ -199,7 +238,7 @@ export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: Not
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
-          {noticeId && notice && (
+          {isEdit && notice ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="form">Dados do Edital</TabsTrigger>
@@ -207,84 +246,28 @@ export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: Not
               </TabsList>
 
               <TabsContent value="form">
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="title">Título</Label>
-                    <Input
-                      id="title"
-                      value={currentNotice.title}
-                      onChange={(e) => {
-                        setCurrentNotice({ ...currentNotice, title: e.target.value });
-                        setErrors((prev) => ({ ...prev, title: '' }));
-                      }}
-                      placeholder="Digite o título do edital"
-                      className={errors.title ? 'border-red-500' : ''}
-                    />
-                    {errors.title && <p className="text-xs text-red-500 -mt-1">{errors.title}</p>}
+                <NoticeFormFields
+                  form={form}
+                  isEdit={isEdit}
+                  onFileChange={handleFileChange}
+                  onOrganizationChange={handleOrganizationChange}
+                />
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Badge
+                      variant={
+                        notice.status === NoticeStatus.PENDING
+                          ? 'secondary'
+                          : notice.status === NoticeStatus.ERROR
+                          ? 'destructive'
+                          : 'default'
+                      }
+                    >
+                      {NoticeStatusLabels[notice.status]}
+                    </Badge>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="deadline">Data Final</Label>
-                    <Input
-                      id="deadline"
-                      type="date"
-                      value={currentNotice.deadline}
-                      onChange={(e) => {
-                        setCurrentNotice({ ...currentNotice, deadline: e.target.value });
-                        setErrors((prev) => ({ ...prev, deadline: '' }));
-                      }}
-                      className={errors.deadline ? 'border-red-500' : ''}
-                    />
-                    {errors.deadline && <p className="text-xs text-red-500 -mt-1">{errors.deadline}</p>}
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="organization_id">Instituição</Label>
-                    <OrganizationsAutocomplete
-                      id="organization_id"
-                      value={currentNotice.organization?.name || ''}
-                      onChange={(org) => {
-                        setCurrentNotice({ ...currentNotice, organization: org });
-                        setErrors((prev) => ({ ...prev, organization: '' }));
-                      }}
-                      placeholder="Digite o nome da instituição"
-                      className={errors.organization ? 'border-red-500' : ''}
-                    />
-                    {errors.organization && <p className="text-xs text-red-500 -mt-1">{errors.organization}</p>}
-                  </div>
-                  {!noticeId && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="pdf">Arquivo PDF</Label>
-                      <Input
-                        id="pdf"
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        className={errors.pdfBase64 ? 'border-red-500' : ''}
-                      />
-                      {errors.pdfBase64 && <p className="text-xs text-red-500 -mt-1">{errors.pdfBase64}</p>}
-                    </div>
-                  )}
                 </div>
-
-                {noticeId && notice && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="pdf">Status</Label>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            notice.status === NoticeStatus.PENDING
-                              ? 'secondary'
-                              : notice.status === NoticeStatus.ERROR
-                              ? 'destructive'
-                              : 'default'
-                          }
-                        >
-                          {NoticeStatusLabels[notice.status]}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </TabsContent>
 
               <TabsContent value="content">
@@ -305,69 +288,18 @@ export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: Not
                 </div>
               </TabsContent>
             </Tabs>
-          )}
-
-          {!noticeId && (
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Título</Label>
-                <Input
-                  id="title"
-                  value={currentNotice.title}
-                  onChange={(e) => {
-                    setCurrentNotice({ ...currentNotice, title: e.target.value });
-                    setErrors((prev) => ({ ...prev, title: '' }));
-                  }}
-                  placeholder="Digite o título do edital"
-                  className={errors.title ? 'border-red-500' : ''}
-                />
-                {errors.title && <p className="text-xs text-red-500 -mt-1">{errors.title}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="deadline">Data Final</Label>
-                <Input
-                  id="deadline"
-                  type="date"
-                  value={currentNotice.deadline}
-                  onChange={(e) => {
-                    setCurrentNotice({ ...currentNotice, deadline: e.target.value });
-                    setErrors((prev) => ({ ...prev, deadline: '' }));
-                  }}
-                  className={errors.deadline ? 'border-red-500' : ''}
-                />
-                {errors.deadline && <p className="text-xs text-red-500 -mt-1">{errors.deadline}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="organization_id">Instituição</Label>
-                <OrganizationsAutocomplete
-                  id="organization_id"
-                  value={currentNotice.organization?.name || ''}
-                  onChange={(org) => {
-                    setCurrentNotice({ ...currentNotice, organization: org });
-                    setErrors((prev) => ({ ...prev, organization: '' }));
-                  }}
-                  placeholder="Digite o nome da instituição"
-                  className={errors.organization ? 'border-red-500' : ''}
-                />
-                {errors.organization && <p className="text-xs text-red-500 -mt-1">{errors.organization}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pdf">Arquivo PDF</Label>
-                <Input
-                  id="pdf"
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleFileChange}
-                  className={errors.pdfBase64 ? 'border-red-500' : ''}
-                />
-                {errors.pdfBase64 && <p className="text-xs text-red-500 -mt-1">{errors.pdfBase64}</p>}
-              </div>
-            </div>
+          ) : (
+            <NoticeFormFields
+              form={form}
+              isEdit={isEdit}
+              onFileChange={handleFileChange}
+              onOrganizationChange={handleOrganizationChange}
+            />
           )}
 
           <div className="flex justify-end gap-2">
-            {(notice && notice.status === NoticeStatus.PENDING) ||
-              (notice?.status === NoticeStatus.ERROR && (
+            {notice &&
+              (notice.status === NoticeStatus.PENDING || notice.status === NoticeStatus.ERROR) && (
                 <Button variant="secondary" onClick={handleProcessNotice} disabled={isProcessing}>
                   {isProcessing ? (
                     <>
@@ -381,8 +313,8 @@ export function NoticeFormDialog({ open, onOpenChange, onSubmit, noticeId }: Not
                     </>
                   )}
                 </Button>
-              ))}
-            <Button onClick={handleSubmit}>{noticeId ? 'Salvar Alterações' : 'Adicionar edital'}</Button>
+              )}
+            <Button onClick={handleFormSubmit}>{isEdit ? 'Salvar Alterações' : 'Adicionar edital'}</Button>
           </div>
         </DialogContent>
       </Dialog>

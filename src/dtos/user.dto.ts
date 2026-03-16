@@ -11,4 +11,5 @@ export class UserDTO {
 export class UserUpdateDTO {
   name: string;
   email: string;
+  password?: string;
 }

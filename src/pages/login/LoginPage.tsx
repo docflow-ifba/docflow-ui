@@ -1,7 +1,7 @@
-import type React from 'react';
-
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,35 +9,38 @@ import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
 import { login } from '@/services/auth.service';
 import { useAuth } from '@/contexts/AuthContext';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { loginSchema, type LoginFormData } from '@/schemas/login.schema';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { setUser, isTokenExpired, getToken } = useAuth();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
 
   useEffect(() => {
     const token = getToken();
     if (token && !isTokenExpired(token)) {
       navigate('/app/chat');
     }
-  }, [navigate, isTokenExpired]);
+  }, [navigate, isTokenExpired, getToken]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      const response = await login({ email, password });
+      const response = await login(data);
       localStorage.setItem('token', response.token);
       setUser(response.user);
       navigate('/app/chat');
       toast.success('Login realizado com sucesso!');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao realizar login. Verifique suas credenciais e tente novamente.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -48,7 +51,7 @@ export default function LoginPage() {
           <CardTitle className="text-2xl font-bold">DOC:FLOW</CardTitle>
           <CardDescription>Acesse o painel administrativo do DOC:FLOW com suas credenciais.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -59,11 +62,11 @@ export default function LoginPage() {
                   type="email"
                   placeholder="admin@ifba.edu.br"
                   className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  aria-invalid={!!errors.email}
+                  {...register('email')}
                 />
               </div>
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
@@ -72,11 +75,10 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="********"
+                  placeholder="••••••••"
                   className="pl-10 pr-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  aria-invalid={!!errors.password}
+                  {...register('password')}
                 />
                 <Button
                   type="button"
@@ -86,14 +88,15 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+                  <span className="sr-only">{showPassword ? 'Ocultar senha' : 'Mostrar senha'}</span>
                 </Button>
               </div>
+              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full mt-6" disabled={isLoading}>
-              {isLoading ? 'Entrando...' : 'Entrar'}
+            <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
+              {isSubmitting ? 'Entrando...' : 'Entrar'}
             </Button>
           </CardFooter>
         </form>

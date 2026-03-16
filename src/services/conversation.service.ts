@@ -2,10 +2,8 @@ import { ConversationDTO } from '@/dtos/conversation.entity';
 import { api } from '.';
 
 export const ask = async (noticeId: string, question: string) => {
-  return api.post(`v1/conversations/ask/${noticeId}`, {
-    params: {
-      question,
-    },
+  return api.post(`v1/conversations/ask/${noticeId}`, null, {
+    params: { question },
   });
 };
 

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.13",
@@ -28,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "dompurify": "^3.3.2",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.510.0",
     "marked": "^15.0.12",
@@ -36,6 +38,7 @@
     "react": "^19.1.0",
     "react-code-blocks": "^0.1.6",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.71.2",
     "react-hot-toast": "^2.5.2",
     "react-pdf": "^9.2.1",
     "react-router-dom": "^7.6.0",
@@ -43,11 +46,13 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.3.0",
-    "tailwindcss": "^4.1.6"
+    "tailwindcss": "^4.1.6",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
     "@tailwindcss/typography": "^0.5.16",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",

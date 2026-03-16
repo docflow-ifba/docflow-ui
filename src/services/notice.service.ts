@@ -11,10 +11,10 @@ export const findNotices = async (filters: {
 }): Promise<NoticeResponseDTO[]> => {
   const cleanedFilters = Object.entries(filters)
     .filter(([_, value]) => value !== undefined && value !== null && value !== '')
-    .reduce((acc, [key, value]) => {
-      acc[key as keyof typeof filters] = value;
-      return acc;
-    }, {} as typeof filters);
+    .reduce(
+      (acc, [key, value]) => ({ ...acc, [key]: value }),
+      {} as Record<string, string | boolean>,
+    );
 
   const response = await api.get('v1/notices', { params: cleanedFilters });
   return response.data;

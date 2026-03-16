@@ -3,7 +3,7 @@ import { getToken } from '@/utils/auth';
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-type EventCallback = (...args: any[]) => void;
+type EventCallback<T = unknown> = (data: T) => void;
 
 export function useSocket(url: string = API_URL) {
   const socketRef = useRef<Socket | null>(null);
@@ -18,11 +18,11 @@ export function useSocket(url: string = API_URL) {
       });
 
       socketRef.current.on('connect', () => {
-        console.log('Conectado ao WebSocket:', socketRef.current?.id);
+        console.info('Conectado ao WebSocket:', socketRef.current?.id);
       });
 
       socketRef.current.on('disconnect', () => {
-        console.log('Desconectado do WebSocket');
+        console.info('Desconectado do WebSocket');
       });
     }
 
@@ -32,19 +32,19 @@ export function useSocket(url: string = API_URL) {
     };
   }, [url]);
 
-  const on = (event: string, callback: EventCallback) => {
-    socketRef.current?.on(event, callback);
+  const on = <T = unknown>(event: string, callback: EventCallback<T>) => {
+    socketRef.current?.on(event, callback as EventCallback);
   };
 
-  const off = (event: string, callback?: EventCallback) => {
+  const off = <T = unknown>(event: string, callback?: EventCallback<T>) => {
     if (callback) {
-      socketRef.current?.off(event, callback);
+      socketRef.current?.off(event, callback as EventCallback);
     } else {
       socketRef.current?.removeAllListeners(event);
     }
   };
 
-  const emit = (event: string, data: any) => {
+  const emit = <T = unknown>(event: string, data: T) => {
     socketRef.current?.emit(event, data);
   };
 

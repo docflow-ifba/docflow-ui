@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 marked.use({
@@ -13,7 +14,8 @@ marked.use({
 });
 
 export default function MarkdownRenderer({ markdown }: { markdown: string }) {
-  const html = marked(markdown);
+  const rawHtml = marked(markdown) as string;
+  const sanitizedHtml = DOMPurify.sanitize(rawHtml);
 
-  return <div className="prose" dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div className="prose" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
 }

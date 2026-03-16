@@ -1,5 +1,6 @@
 import { CornerDownLeft, LogOut, Mic, Paperclip, Search } from 'lucide-react';
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/ui/chat/chat-input';
@@ -85,13 +86,17 @@ export default function ChatPage() {
 
   const handleSelectNotice = async (notice: NoticeResponseDTO) => {
     setSelectedNotice(notice);
+    setLoading(true);
     try {
       const conversations = await findConversations(notice.noticeId);
       setMessages(conversations);
       scrollToBottom();
     } catch (err) {
       console.error('Erro ao buscar conversas:', err);
+      toast.error('Erro ao carregar conversas.');
       setMessages([]);
+    } finally {
+      setLoading(false);
     }
   };
 

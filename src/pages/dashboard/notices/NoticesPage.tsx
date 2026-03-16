@@ -107,7 +107,7 @@ export default function NoticesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Título</TableHead>
-              <TableHead>Data Final</TableHead>
+              <TableHead>Data Final de Inscrição</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Instituição</TableHead>
               <TableHead className="text-right">Ações</TableHead>

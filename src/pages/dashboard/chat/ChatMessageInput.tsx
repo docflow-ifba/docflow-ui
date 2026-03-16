@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/ui/chat/chat-input';
 import MessageLoading from '@/components/ui/chat/message-loading';
-import { Paperclip, Mic, CornerDownLeft } from 'lucide-react';
+import { CornerDownLeft } from 'lucide-react';
 
 type ChatMessageInputProps = {
   formRef: React.RefObject<HTMLFormElement | null>;
@@ -42,12 +42,6 @@ const ChatMessageInput = ({
           className="rounded-lg bg-background border-0 shadow-none focus-visible:ring-0"
         />
         <div className="flex items-center p-3 pt-0">
-          <Button variant="ghost" size="icon">
-            <Paperclip className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Mic className="size-4" />
-          </Button>
           <Button type="submit" size="sm" className="ml-auto gap-1.5">
             {isGenerating ? (
               <MessageLoading />

@@ -8,6 +8,8 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-2xl font-bold tracking-tight">Início</h2>
+      {/* MOCKUP: Estatísticas ilustrativas para demonstração do TCC.
+          Em produção, substituir por chamadas à API real. */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

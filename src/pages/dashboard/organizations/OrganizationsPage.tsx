@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,53 +15,57 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Edit, Plus, Trash2, Search } from 'lucide-react';
-import {
-  findOrganizations,
-  createOrganization,
-  updateOrganization,
-  deleteOrganization,
-} from '@/services/organization.service';
+import { createOrganization, updateOrganization, deleteOrganization } from '@/services/organization.service';
 import { Organization } from '@/dtos/organization';
 import Tooltip from 'rc-tooltip';
+import { toast } from 'sonner';
+import { useOrganizations } from '@/hooks/useOrganizations';
+import { organizationSchema, type OrganizationFormData } from '@/schemas/organization.schema';
 
 export default function OrganizationsPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
-  const [currentOrg, setCurrentOrg] = useState<Organization>({ name: '' });
 
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const data = await findOrganizations(searchTerm);
-        setOrganizations(data);
-      } catch (error) {
-        console.error('Erro ao buscar instituições:', error);
-      }
-    };
-    fetchOrganizations();
-  }, [searchTerm]);
+  const { organizations, refetch } = useOrganizations(searchTerm);
 
-  const handleSaveOrganization = async () => {
+  const form = useForm<OrganizationFormData>({
+    resolver: zodResolver(organizationSchema),
+    defaultValues: { name: '' },
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = form;
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingOrgId(null);
+    reset();
+  };
+
+  const onSubmit = async (data: OrganizationFormData) => {
     try {
       if (editingOrgId) {
-        await updateOrganization(editingOrgId, currentOrg);
+        await updateOrganization(editingOrgId, data);
+        toast.success('Instituição atualizada com sucesso!');
       } else {
-        await createOrganization(currentOrg);
+        await createOrganization(data);
+        toast.success('Instituição criada com sucesso!');
       }
-      setIsDialogOpen(false);
-      setCurrentOrg({ name: '' });
-      setEditingOrgId(null);
-      const updated = await findOrganizations(searchTerm);
-      setOrganizations(updated);
+      closeDialog();
+      refetch();
     } catch (err) {
       console.error('Erro ao salvar instituição:', err);
+      toast.error('Erro ao salvar instituição.');
     }
   };
 
   const handleEditOrganization = (org: Organization) => {
-    setCurrentOrg({ name: org.name });
+    reset({ name: org.name });
     setEditingOrgId(org.organizationId ?? null);
     setIsDialogOpen(true);
   };
@@ -67,10 +73,11 @@ export default function OrganizationsPage() {
   const handleDeleteOrganization = async (organizationId: string) => {
     try {
       await deleteOrganization(organizationId);
-      const updated = await findOrganizations(searchTerm);
-      setOrganizations(updated);
+      toast.success('Instituição excluída com sucesso!');
+      refetch();
     } catch (err) {
       console.error('Erro ao excluir instituição:', err);
+      toast.error('Erro ao excluir instituição.');
     }
   };
 
@@ -81,17 +88,14 @@ export default function OrganizationsPage() {
         <Dialog
           open={isDialogOpen}
           onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setCurrentOrg({ name: '' });
-              setEditingOrgId(null);
-            }
+            if (!open) closeDialog();
+            else setIsDialogOpen(true);
           }}
         >
           <DialogTrigger asChild>
             <Button
               onClick={() => {
-                setCurrentOrg({ name: '' });
+                reset();
                 setEditingOrgId(null);
                 setIsDialogOpen(true);
               }}
@@ -107,23 +111,28 @@ export default function OrganizationsPage() {
                 {editingOrgId ? 'Atualize o nome da instituição.' : 'Adicione uma nova instituição ao sistema.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome da Instituição</Label>
-                <Input
-                  id="name"
-                  value={currentOrg.name}
-                  onChange={(e) => setCurrentOrg({ ...currentOrg, name: e.target.value })}
-                  placeholder="Digite o nome da instituição"
-                />
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nome da Instituição</Label>
+                  <Input
+                    id="name"
+                    placeholder="Digite o nome da instituição"
+                    aria-invalid={!!errors.name}
+                    {...register('name')}
+                  />
+                  {errors.name && <p className="text-xs text-destructive -mt-1">{errors.name.message}</p>}
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveOrganization}>{editingOrgId ? 'Salvar Alterações' : 'Adicionar'}</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {editingOrgId ? 'Salvar Alterações' : 'Adicionar'}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
