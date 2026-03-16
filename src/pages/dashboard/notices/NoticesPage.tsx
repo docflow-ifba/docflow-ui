@@ -5,6 +5,7 @@ import { NoticeStatusIcons } from '@/constants/NoticeStatusIcons';
 import { CreateNoticeDTO } from '@/dtos/create-notice.dto';
 import { NoticeResponseDTO } from '@/dtos/notice-response.dto';
 import { NoticeStatus } from '@/enums/notice-status';
+import { useDebounce } from '@/hooks/useDebounce';
 import { createNotice, deleteNotice, embedNotice, findNotices, updateNotice } from '@/services/notice.service';
 import { formatDate } from '@/utils/date';
 import { Edit, Plus, RotateCcw, Search, Send } from 'lucide-react';
@@ -19,13 +20,13 @@ export default function NoticesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
 
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
   useEffect(() => {
     const fetchNotices = async () => {
       try {
-        if (notices.length === 0 || notices.some((notice) => notice.status === NoticeStatus.PROCESSING)) {
-          const noticesData = await findNotices({ title: searchTerm });
-          setNotices(noticesData);
-        }
+        const noticesData = await findNotices({ title: debouncedSearch });
+        setNotices(noticesData);
       } catch (error) {
         console.error('Erro ao buscar editais:', error);
       }
@@ -34,7 +35,7 @@ export default function NoticesPage() {
     fetchNotices();
     const intervalId = setInterval(fetchNotices, 5000);
     return () => clearInterval(intervalId);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   const handleSaveNotice = async (noticeData: CreateNoticeDTO) => {
     if (editingNoticeId) {

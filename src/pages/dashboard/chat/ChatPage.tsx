@@ -11,6 +11,7 @@ import NoticeCard from './NoticeCard';
 import { ConversationDTO } from '@/dtos/conversation.entity';
 import { NoticeResponseDTO } from '@/dtos/notice-response.dto';
 import { SenderEnum } from '@/enums/sender.enum';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useSocket } from '@/hooks/useSocket';
 import { findConversations } from '@/services/conversation.service';
 import { findNotices } from '@/services/notice.service';
@@ -30,8 +31,8 @@ export default function ChatPage() {
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const { on, off, emit } = useSocket();
 
   const scrollToBottom = () => {
@@ -113,9 +114,8 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = setTimeout(() => fetchNotices(searchTerm), 300);
-  }, [searchTerm]);
+    fetchNotices(debouncedSearch);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!selectedNotice) return;
