@@ -1,4 +1,4 @@
-import { CornerDownLeft, LogOut, Mic, Paperclip, Search } from 'lucide-react';
+import { CornerDownLeft, LogOut, Search } from 'lucide-react';
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -8,6 +8,7 @@ import { ChatMessageList } from '@/components/ui/chat/chat-message-list';
 import ChatMessageInput from './ChatMessageInput';
 import NoticeCard from './NoticeCard';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { ConversationDTO } from '@/dtos/conversation.entity';
 import { NoticeResponseDTO } from '@/dtos/notice-response.dto';
 import { SenderEnum } from '@/enums/sender.enum';
@@ -15,9 +16,8 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useSocket } from '@/hooks/useSocket';
 import { findConversations } from '@/services/conversation.service';
 import { findNotices } from '@/services/notice.service';
-import ChatMessageBubble from './ChatMessageBubble';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import ChatMessageBubble from './ChatMessageBubble';
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
@@ -199,12 +199,6 @@ export default function ChatPage() {
                 className="rounded-lg bg-background border-0 shadow-none focus-visible:ring-0"
               />
               <div className="flex items-center p-3 pt-0">
-                <Button variant="ghost" size="icon" disabled>
-                  <Paperclip className="size-4" />
-                </Button>
-                <Button variant="ghost" size="icon" disabled>
-                  <Mic className="size-4" />
-                </Button>
                 <Button disabled type="submit" size="sm" className="ml-auto gap-1.5">
                   Enviar <CornerDownLeft className="size-3.5" />
                 </Button>
